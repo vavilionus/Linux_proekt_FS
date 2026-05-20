@@ -1,0 +1,624 @@
+user@Ubuntu:~/simplefs$ make clean KDIR=/home/user/kernel/linux-6.12
+
+make -C /home/user/kernel/linux-6.12 M=/home/user/simplefs clean
+
+make[1]: Entering directory '/home/user/kernel/linux-6.12'
+
+make[1]: Leaving directory '/home/user/kernel/linux-6.12'
+
+rm -f myfs_test
+
+user@Ubuntu:~/simplefs$ make KDIR=/home/user/kernel/linux-6.12
+
+make -C /home/user/kernel/linux-6.12 M=/home/user/simplefs modules
+
+make[1]: Entering directory '/home/user/kernel/linux-6.12'
+
+  CC [M]  /home/user/simplefs/myfs_main.o
+
+  CC [M]  /home/user/simplefs/myfs_super.o
+
+  CC [M]  /home/user/simplefs/myfs_inode.o
+
+  CC [M]  /home/user/simplefs/myfs_file.o
+
+  LD [M]  /home/user/simplefs/myfs.o
+
+  MODPOST /home/user/simplefs/Module.symvers
+
+  CC [M]  /home/user/simplefs/myfs.mod.o
+
+  CC [M]  /home/user/simplefs/.module-common.o
+
+  LD [M]  /home/user/simplefs/myfs.ko
+
+make[1]: Leaving directory '/home/user/kernel/linux-6.12'
+
+g++ -std=c++17 -O2 -Wall -Wextra -Wno-unused-parameter -o myfs_test myfs_test.cpp
+
+user@Ubuntu:~/simplefs$ ls -la myfs.ko myfs_test
+
+modinfo ./myfs.ko | grep vermagic
+
+-rw-rw-r-- 1 user user 1153120 мая 20 10:54 myfs.ko
+
+-rwxrwxr-x 1 user user   44832 мая 20 10:54 myfs_test
+
+vermagic:       6.12.0 SMP preempt mod_unload modversions 
+
+user@Ubuntu:~/simplefs$ rm -f /tmp/myfs.img
+
+dd if=/dev/zero of=/tmp/myfs.img bs=1M count=32
+
+LOOP=$(sudo losetup --show -fP /tmp/myfs.img)
+
+echo $LOOP
+
+32+0 records in
+
+32+0 records out
+
+33554432 bytes (34 MB, 32 MiB) copied, 0,0194662 s, 1,7 GB/s
+
+[sudo] password for user: 
+
+/dev/loop10
+
+user@Ubuntu:~/simplefs$ sudo dmesg -C
+
+
+
+sudo insmod ./myfs.ko \
+
+    device=$LOOP \
+
+    sb1_offset=0 \
+
+    sb2_offset=1024 \
+
+    max_filename_len=32 \
+
+    max_file_blocks=8
+
+user@Ubuntu:~/simplefs$ sudo mkdir -p /mnt/myfs
+
+sudo mount -t myfs $LOOP /mnt/myfs
+
+user@Ubuntu:~/simplefs$ sudo ./myfs_test ls /mnt/myfs | head -40
+
+sudo ./myfs_test test /mnt/myfs
+
+sudo ./myfs_test hashes /mnt/myfs | head -50
+
+sudo ./myfs_test mapping /mnt/myfs file_5
+
+dmesg | tail -100
+
+Files in /mnt/myfs (895):
+
+  file_0
+
+  file_1
+
+  file_2
+
+  file_3
+
+  file_4
+
+  file_5
+
+  file_6
+
+  file_7
+
+  file_8
+
+  file_9
+
+  file_10
+
+  file_11
+
+  file_12
+
+  file_13
+
+  file_14
+
+  file_15
+
+  file_16
+
+  file_17
+
+  file_18
+
+  file_19
+
+  file_20
+
+  file_21
+
+  file_22
+
+  file_23
+
+  file_24
+
+  file_25
+
+  file_26
+
+  file_27
+
+  file_28
+
+  file_29
+
+  file_30
+
+  file_31
+
+  file_32
+
+  file_33
+
+  file_34
+
+  file_35
+
+  file_36
+
+  file_37
+
+  file_38
+
+Testing 895 files in /mnt/myfs ...
+
+  OK   file_99                  0xc4cffae567555fe1
+
+  OK   file_199                 0x0d2692b462e32c64
+
+  OK   file_299                 0x3d4529f58b4fc5fa
+
+  OK   file_399                 0xf95a9d0f745c3964
+
+  OK   file_499                 0xc068154d425a5640
+
+  OK   file_599                 0x9399fdfe736a51ad
+
+  OK   file_699                 0xc9d0d57c8d67fe93
+
+  OK   file_799                 0x6ece208f1457deb4
+
+Result: 895 OK, 0 FAIL (895 total)
+
+File hashes (895):
+
+  file_0                   CRC32=0xe9ad3e2a
+
+  file_1                   CRC32=0x8dc69ad0
+
+  file_2                   CRC32=0x809717e0
+
+  file_3                   CRC32=0x524af3fe
+
+  file_4                   CRC32=0x86b80b28
+
+  file_5                   CRC32=0x7c1e7673
+
+  file_6                   CRC32=0xe8baf9bd
+
+  file_7                   CRC32=0x951c19af
+
+  file_8                   CRC32=0x05557658
+
+  file_9                   CRC32=0x40049cba
+
+  file_10                  CRC32=0xc2186e8b
+
+  file_11                  CRC32=0x0bb0a709
+
+  file_12                  CRC32=0xdcbdfe47
+
+  file_13                  CRC32=0xf0c34f71
+
+  file_14                  CRC32=0x99b5f043
+
+  file_15                  CRC32=0xf1e07c74
+
+  file_16                  CRC32=0x55a36484
+
+  file_17                  CRC32=0x8403c00b
+
+  file_18                  CRC32=0x0f359053
+
+  file_19                  CRC32=0x60b8688b
+
+  file_20                  CRC32=0x10b9e152
+
+  file_21                  CRC32=0xab5b5537
+
+  file_22                  CRC32=0x5a745948
+
+  file_23                  CRC32=0xb5f1f36e
+
+  file_24                  CRC32=0x33cdebdf
+
+  file_25                  CRC32=0xcda10384
+
+  file_26                  CRC32=0x8ff5336e
+
+  file_27                  CRC32=0x84697cd6
+
+  file_28                  CRC32=0x533bc8b9
+
+  file_29                  CRC32=0x5cb158e5
+
+  file_30                  CRC32=0x140f6b6e
+
+  file_31                  CRC32=0xb3810ec2
+
+  file_32                  CRC32=0x91a429b2
+
+  file_33                  CRC32=0x74e44a4b
+
+  file_34                  CRC32=0xaabfdab4
+
+  file_35                  CRC32=0xd91a1f7d
+
+  file_36                  CRC32=0xe7883e17
+
+  file_37                  CRC32=0xdf968589
+
+  file_38                  CRC32=0x0c82c544
+
+  file_39                  CRC32=0x2f44bd15
+
+  file_40                  CRC32=0x6108a398
+
+  file_41                  CRC32=0xf294bd28
+
+  file_42                  CRC32=0x51b0ddff
+
+  file_43                  CRC32=0x2ce4a816
+
+  file_44                  CRC32=0x4d25bd65
+
+  file_45                  CRC32=0x1d6ba81c
+
+  file_46                  CRC32=0xb57c9b90
+
+  file_47                  CRC32=0x6aa25030
+
+  file_48                  CRC32=0x43c65b21
+
+Mapping for "file_5":
+
+  file_index  = 5
+
+  start_block = 1065
+
+  num_blocks  = 8
+
+  block range = [1065, 1073)
+
+  byte range  = [4362240, 4395008)
+
+dmesg: read kernel buffer failed: Operation not permitted
+
+user@Ubuntu:~/simplefs$ sudo dmesg | tail -100
+
+[ 1353.709653] myfs: loading out-of-tree module taints kernel.
+
+[ 1353.709659] myfs: module verification failed: signature and/or required key missing - tainting kernel
+
+[ 1353.711391] myfs: loading module
+
+[ 1353.711393] myfs: parameters device='/dev/loop10' sb1_offset=0 sb2_offset=1024 max_filename_len=32 max_file_blocks=8
+
+[ 1353.711417] myfs: filesystem 'myfs' registered
+
+[ 1362.063402] myfs: no valid superblock found, formatting
+
+[ 1362.063407] myfs: formatting device (8192 blocks, 895 files of 8 blocks each)
+
+[ 1362.063574] myfs: format complete
+
+[ 1362.063577] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+user@Ubuntu:~/simplefs$ sudo ./myfs_test zero /mnt/myfs
+
+sudo ./myfs_test hashes /mnt/myfs | head -50
+
+All files zeroed.
+
+File hashes (895):
+
+  file_0                   CRC32=0x00000000
+
+  file_1                   CRC32=0x00000000
+
+  file_2                   CRC32=0x00000000
+
+  file_3                   CRC32=0x00000000
+
+  file_4                   CRC32=0x00000000
+
+  file_5                   CRC32=0x00000000
+
+  file_6                   CRC32=0x00000000
+
+  file_7                   CRC32=0x00000000
+
+  file_8                   CRC32=0x00000000
+
+  file_9                   CRC32=0x00000000
+
+  file_10                  CRC32=0x00000000
+
+  file_11                  CRC32=0x00000000
+
+  file_12                  CRC32=0x00000000
+
+  file_13                  CRC32=0x00000000
+
+  file_14                  CRC32=0x00000000
+
+  file_15                  CRC32=0x00000000
+
+  file_16                  CRC32=0x00000000
+
+  file_17                  CRC32=0x00000000
+
+  file_18                  CRC32=0x00000000
+
+  file_19                  CRC32=0x00000000
+
+  file_20                  CRC32=0x00000000
+
+  file_21                  CRC32=0x00000000
+
+  file_22                  CRC32=0x00000000
+
+  file_23                  CRC32=0x00000000
+
+  file_24                  CRC32=0x00000000
+
+  file_25                  CRC32=0x00000000
+
+  file_26                  CRC32=0x00000000
+
+  file_27                  CRC32=0x00000000
+
+  file_28                  CRC32=0x00000000
+
+  file_29                  CRC32=0x00000000
+
+  file_30                  CRC32=0x00000000
+
+  file_31                  CRC32=0x00000000
+
+  file_32                  CRC32=0x00000000
+
+  file_33                  CRC32=0x00000000
+
+  file_34                  CRC32=0x00000000
+
+  file_35                  CRC32=0x00000000
+
+  file_36                  CRC32=0x00000000
+
+  file_37                  CRC32=0x00000000
+
+  file_38                  CRC32=0x00000000
+
+  file_39                  CRC32=0x00000000
+
+  file_40                  CRC32=0x00000000
+
+  file_41                  CRC32=0x00000000
+
+  file_42                  CRC32=0x00000000
+
+  file_43                  CRC32=0x00000000
+
+  file_44                  CRC32=0x00000000
+
+  file_45                  CRC32=0x00000000
+
+  file_46                  CRC32=0x00000000
+
+  file_47                  CRC32=0x00000000
+
+  file_48                  CRC32=0x00000000
+
+user@Ubuntu:~/simplefs$ sudo ./myfs_test erase /mnt/myfs
+
+sudo umount /mnt/myfs
+
+sudo mount -t myfs $LOOP /mnt/myfs
+
+sudo dmesg | tail -100
+
+FS erased. Unmount the FS to confirm.
+
+[ 1353.709653] myfs: loading out-of-tree module taints kernel.
+
+[ 1353.709659] myfs: module verification failed: signature and/or required key missing - tainting kernel
+
+[ 1353.711391] myfs: loading module
+
+[ 1353.711393] myfs: parameters device='/dev/loop10' sb1_offset=0 sb2_offset=1024 max_filename_len=32 max_file_blocks=8
+
+[ 1353.711417] myfs: filesystem 'myfs' registered
+
+[ 1362.063402] myfs: no valid superblock found, formatting
+
+[ 1362.063407] myfs: formatting device (8192 blocks, 895 files of 8 blocks each)
+
+[ 1362.063574] myfs: format complete
+
+[ 1362.063577] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+[ 1522.723800] myfs: ioctl ZERO_ALL: 7160 blocks
+
+[ 1535.772947] myfs: ioctl ERASE_FS — wiping both superblocks
+
+[ 1535.797493] myfs: unmounting
+
+[ 1535.814209] myfs: no valid superblock found, formatting
+
+[ 1535.814213] myfs: formatting device (8192 blocks, 895 files of 8 blocks each)
+
+[ 1535.814320] myfs: format complete
+
+[ 1535.814322] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+user@Ubuntu:~/simplefs$ sudo umount /mnt/myfs
+
+user@Ubuntu:~/simplefs$ sudo dd if=/dev/zero of=$LOOP bs=4096 count=1 seek=0 conv=notrunc
+
+1+0 records in
+
+1+0 records out
+
+4096 bytes (4,1 kB, 4,0 KiB) copied, 0,000358729 s, 11,4 MB/s
+
+user@Ubuntu:~/simplefs$ sudo mount -t myfs $LOOP /mnt/myfs
+
+sudo dmesg | tail -100
+
+[ 1353.709653] myfs: loading out-of-tree module taints kernel.
+
+[ 1353.709659] myfs: module verification failed: signature and/or required key missing - tainting kernel
+
+[ 1353.711391] myfs: loading module
+
+[ 1353.711393] myfs: parameters device='/dev/loop10' sb1_offset=0 sb2_offset=1024 max_filename_len=32 max_file_blocks=8
+
+[ 1353.711417] myfs: filesystem 'myfs' registered
+
+[ 1362.063402] myfs: no valid superblock found, formatting
+
+[ 1362.063407] myfs: formatting device (8192 blocks, 895 files of 8 blocks each)
+
+[ 1362.063574] myfs: format complete
+
+[ 1362.063577] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+[ 1522.723800] myfs: ioctl ZERO_ALL: 7160 blocks
+
+[ 1535.772947] myfs: ioctl ERASE_FS — wiping both superblocks
+
+[ 1535.797493] myfs: unmounting
+
+[ 1535.814209] myfs: no valid superblock found, formatting
+
+[ 1535.814213] myfs: formatting device (8192 blocks, 895 files of 8 blocks each)
+
+[ 1535.814320] myfs: format complete
+
+[ 1535.814322] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+[ 1554.610056] myfs: unmounting
+
+[ 1576.418163] myfs: primary corrupted, recovering from secondary
+
+[ 1576.418312] myfs: mounted: 895 files, 8 blocks each, data starts at block 1025
+
+user@Ubuntu:~/simplefs$ sudo ./myfs_test ls /mnt/myfs | head -30
+
+sudo ./myfs_test test /mnt/myfs
+
+Files in /mnt/myfs (895):
+
+  file_0
+
+  file_1
+
+  file_2
+
+  file_3
+
+  file_4
+
+  file_5
+
+  file_6
+
+  file_7
+
+  file_8
+
+  file_9
+
+  file_10
+
+  file_11
+
+  file_12
+
+  file_13
+
+  file_14
+
+  file_15
+
+  file_16
+
+  file_17
+
+  file_18
+
+  file_19
+
+  file_20
+
+  file_21
+
+  file_22
+
+  file_23
+
+  file_24
+
+  file_25
+
+  file_26
+
+  file_27
+
+  file_28
+
+Testing 895 files in /mnt/myfs ...
+
+  OK   file_99                  0x037d4b1ff460823b
+
+  OK   file_199                 0x3fdccf9f8b0d815a
+
+  OK   file_299                 0xa74c513ed0410a7e
+
+  OK   file_399                 0x38cd3b3c4a755039
+
+  OK   file_499                 0x2dd7ba387e7bf869
+
+  OK   file_599                 0xe4590aa9c06c146d
+
+  OK   file_699                 0x75cb64d015063345
+
+  OK   file_799                 0xcf9af36b3a86f8a4
+
+Result: 895 OK, 0 FAIL (895 total)
+
+user@Ubuntu:~/simplefs$ sudo umount /mnt/myfs
+
+sudo rmmod myfs
+
+sudo losetup -d $LOOP
+
+rm -f /tmp/myfs.img
+
+user@Ubuntu:~/simplefs$ 
+
