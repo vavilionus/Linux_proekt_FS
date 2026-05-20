@@ -16,6 +16,7 @@
 | `Makefile`        | Сборка модуля и тестовой программы                        |
 | `myfs_test.cpp`   | Userspace CLI: тест read/write + вызов IOCTL              |
 | `README.md`       | Этот файл                                                 |
+| 'run_example.txt' | Логи робного запуска с тестом всех операций               |
 
 ## Расположение данных на диске
 
@@ -69,7 +70,7 @@ dd if=/dev/zero of=/tmp/myfs.img bs=1M count=64
 
 # подключаем как блочное устройство
 sudo losetup -fP /tmp/myfs.img
-sudo losetup -l           # узнать имя, например /dev/loop0
+sudo losetup -l          
 ```
 
 ## Загрузка модуля и монтирование
@@ -107,7 +108,7 @@ sudo ./myfs_test mapping /mnt/myfs file_5
 
 # 4) Обнулить все файлы.
 sudo ./myfs_test zero /mnt/myfs
-sudo ./myfs_test hashes /mnt/myfs   # хэши теперь должны совпасть
+sudo ./myfs_test hashes /mnt/myfs 
 
 # 5) Стереть ФС (зануляются обе копии суперблока).
 sudo ./myfs_test erase /mnt/myfs
