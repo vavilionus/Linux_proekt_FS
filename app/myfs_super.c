@@ -131,6 +131,18 @@ int myfs_write_superblock(struct super_block *sb, u32 block)
 
 /* ------------- проверка валидности dsb -------------- */
 
+static bool myfs_sb_is_empty(const struct myfs_disk_superblock *dsb)
+{
+	const u8 *p = (const u8 *)dsb;
+	size_t i;
+
+	for (i = 0; i < sizeof(*dsb); i++) {
+		if (p[i] != 0)
+			return false;
+	}
+	return true;
+}
+
 static bool myfs_sb_is_valid(const struct myfs_disk_superblock *dsb)
 {
 	u32 stored, computed;
@@ -166,6 +178,7 @@ static void myfs_dsb_to_sbi(const struct myfs_disk_superblock *dsb,
 	sbi->sb2_offset       = le32_to_cpu(dsb->sb2_offset);
 	sbi->data_start_block = le32_to_cpu(dsb->data_start_block);
 	sbi->total_blocks     = le32_to_cpu(dsb->total_blocks);
+	sbi->erased           = false;
 }
 
 /* ------------- форматирование чистого устройства ---- */
@@ -193,6 +206,7 @@ static int myfs_format_device(struct super_block *sb)
 	sbi->total_blocks     = total_blocks;
 	sbi->data_start_block = data_start;
 	sbi->num_files        = (total_blocks - data_start) / sbi->file_size_blocks;
+	sbi->erased           = false;
 
 	if (sbi->num_files == 0) {
 		pr_err("myfs: device too small — no room for files\n");
@@ -286,21 +300,30 @@ int myfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	if (err)
 		goto out_free;
 
-	if (myfs_sb_is_valid(dsb1)) {
-		pr_info("myfs: primary superblock OK\n");
-		myfs_dsb_to_sbi(dsb1, sbi);
-		/* если резерв повреждён — восстановим */
-		if (!myfs_sb_is_valid(dsb2)) {
-			pr_warn("myfs: secondary superblock corrupted, restoring\n");
-			(void)myfs_write_superblock(sb, sbi->sb2_offset);
+	{
+		bool sb1_valid = myfs_sb_is_valid(dsb1);
+		bool sb2_valid = myfs_sb_is_valid(dsb2);
+		bool sb1_empty = myfs_sb_is_empty(dsb1);
+		bool sb2_empty = myfs_sb_is_empty(dsb2);
+
+		if (sb1_valid && sb2_valid) {
+			if (memcmp(dsb1, dsb2,
+				   offsetof(struct myfs_disk_superblock, padding)) != 0) {
+				pr_err("myfs: superblock copies differ, refusing to mount\n");
+				err = -EUCLEAN;
+				goto out_free;
+			}
+
+			pr_info("myfs: both superblocks OK\n");
+			myfs_dsb_to_sbi(dsb1, sbi);
+		} else if (sb1_empty && sb2_empty) {
+			pr_info("myfs: empty device, formatting\n");
+			need_format = true;
+		} else {
+			pr_err("myfs: corrupted superblock, refusing to mount\n");
+			err = -EUCLEAN;
+			goto out_free;
 		}
-	} else if (myfs_sb_is_valid(dsb2)) {
-		pr_warn("myfs: primary corrupted, recovering from secondary\n");
-		myfs_dsb_to_sbi(dsb2, sbi);
-		(void)myfs_write_superblock(sb, sbi->sb1_offset);
-	} else {
-		pr_info("myfs: no valid superblock found, formatting\n");
-		need_format = true;
 	}
 
 	if (need_format) {

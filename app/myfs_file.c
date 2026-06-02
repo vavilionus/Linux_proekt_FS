@@ -23,9 +23,15 @@ static ssize_t myfs_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	struct myfs_sb_info *sbi = MYFS_SB(sb);
 	struct myfs_inode_info *mi = MYFS_I(inode);
 	loff_t pos = iocb->ki_pos;
-	loff_t file_sz = (loff_t)mi->num_blocks * sbi->block_size;
+	loff_t capacity = (loff_t)mi->num_blocks * sbi->block_size;
+	loff_t file_sz;
 	size_t want = iov_iter_count(to);
 	size_t copied = 0;
+
+	if (sbi->erased)
+		return -EIO;
+
+	file_sz = min_t(loff_t, mi->logical_size, capacity);
 
 	if (pos < 0)
 		return -EINVAL;
@@ -66,19 +72,31 @@ static ssize_t myfs_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	struct super_block *sb = inode->i_sb;
 	struct myfs_sb_info *sbi = MYFS_SB(sb);
 	struct myfs_inode_info *mi = MYFS_I(inode);
-	loff_t pos = iocb->ki_pos;
-	loff_t file_sz = (loff_t)mi->num_blocks * sbi->block_size;
+	loff_t capacity = (loff_t)mi->num_blocks * sbi->block_size;
+	loff_t pos;
 	size_t want = iov_iter_count(from);
 	size_t written = 0;
 
-	if (pos < 0)
-		return -EINVAL;
-	if (pos >= file_sz)
-		return -ENOSPC;
-	if (pos + want > file_sz)
-		want = file_sz - pos;
+	if (sbi->erased)
+		return -EIO;
 
 	inode_lock(inode);
+
+	if (filp->f_flags & O_APPEND)
+		pos = mi->logical_size;
+	else
+		pos = iocb->ki_pos;
+
+	if (pos < 0) {
+		inode_unlock(inode);
+		return -EINVAL;
+	}
+	if (pos >= capacity) {
+		inode_unlock(inode);
+		return -ENOSPC;
+	}
+	if (pos + want > capacity)
+		want = capacity - pos;
 
 	while (written < want) {
 		sector_t blk = mi->start_block + (pos + written) / sbi->block_size;
@@ -90,7 +108,6 @@ static ssize_t myfs_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		if (chunk > want - written)
 			chunk = want - written;
 
-		/* Если перезаписываем целый блок — sb_getblk избежит чтения. */
 		if (off == 0 && chunk == sbi->block_size)
 			bh = sb_getblk(sb, blk);
 		else
@@ -108,15 +125,24 @@ static ssize_t myfs_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			brelse(bh);
 			break;
 		}
+
 		set_buffer_uptodate(bh);
 		mark_buffer_dirty(bh);
 		unlock_buffer(bh);
+		sync_dirty_buffer(bh);
 		brelse(bh);
 
 		written += got;
 	}
 
 	if (written > 0) {
+		loff_t end = pos + written;
+
+		if (end > mi->logical_size) {
+			mi->logical_size = end;
+			i_size_write(inode, end);
+		}
+
 		simple_inode_init_ts(inode);
 		mark_inode_dirty(inode);
 	}
@@ -139,6 +165,9 @@ static int myfs_ioctl_zero_all(struct super_block *sb)
 	u32 blk;
 	u32 last = sbi->data_start_block + sbi->num_files * sbi->file_size_blocks;
 	int err = 0;
+	
+	if (sbi->erased)
+		return -EIO;
 
 	pr_info("myfs: ioctl ZERO_ALL: %u blocks\n",
 	        last - sbi->data_start_block);
@@ -188,6 +217,9 @@ static int myfs_ioctl_erase_fs(struct super_block *sb)
 		sync_dirty_buffer(bh);
 		brelse(bh);
 	}
+
+	sbi->erased = true;
+	shrink_dcache_sb(sb);
 	return 0;
 }
 
@@ -217,6 +249,9 @@ static int myfs_ioctl_get_hashes(struct super_block *sb,
 	struct myfs_hashes *h;
 	u32 i, want;
 	int err = 0;
+	
+	if (sbi->erased)
+		return -EIO;
 
 	h = kvzalloc(sizeof(*h), GFP_KERNEL);
 	if (!h)
@@ -257,6 +292,9 @@ static int myfs_ioctl_get_mapping(struct super_block *sb,
 	const char prefix[] = "file_";
 	const size_t plen   = sizeof(prefix) - 1;
 	size_t namelen;
+	
+	if (sbi->erased)
+		return -EIO;
 
 	if (copy_from_user(&m, uarg, sizeof(m)))
 		return -EFAULT;

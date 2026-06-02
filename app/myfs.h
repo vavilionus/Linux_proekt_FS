@@ -95,6 +95,7 @@ struct myfs_sb_info {
 	u32  sb2_offset;
 	u32  data_start_block;
 	u32  total_blocks;
+	bool erased;
 };
 
 /* Кастомный inode info с обёрткой над VFS inode.                       */
@@ -102,6 +103,7 @@ struct myfs_inode_info {
 	u32 file_index;        /* (u32)-1 для корня */
 	u32 start_block;
 	u32 num_blocks;
+	loff_t logical_size;   /* текущий логический размер файла для append */
 	struct inode vfs_inode;
 };
 

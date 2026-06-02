@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/dcache.h>
 #include <linux/namei.h>
 #include <linux/dcache.h>
 
@@ -59,11 +60,12 @@ struct inode *myfs_iget_file(struct super_block *sb, u32 file_index)
 	mi->file_index  = file_index;
 	mi->start_block = sbi->data_start_block + file_index * sbi->file_size_blocks;
 	mi->num_blocks  = sbi->file_size_blocks;
+	mi->logical_size = 0;
 
 	inode->i_mode   = S_IFREG | 0644;
 	inode->i_uid    = current_fsuid();
 	inode->i_gid    = current_fsgid();
-	inode->i_size   = (loff_t)mi->num_blocks * sbi->block_size;
+	inode->i_size   = 0;
 	inode->i_blocks = mi->num_blocks * (sbi->block_size / 512);
 	inode->i_op     = &myfs_file_iops;
 	inode->i_fop    = &myfs_file_fops;
@@ -87,10 +89,11 @@ struct inode *myfs_iget_root(struct super_block *sb)
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
-	mi              = MYFS_I(inode);
-	mi->file_index  = (u32)-1;
-	mi->start_block = 0;
-	mi->num_blocks  = 0;
+	mi               = MYFS_I(inode);
+	mi->file_index   = (u32)-1;
+	mi->start_block  = 0;
+	mi->num_blocks   = 0;
+	mi->logical_size = 0;
 
 	inode->i_mode = S_IFDIR | 0755;
 	inode->i_uid  = current_fsuid();
@@ -115,6 +118,8 @@ static struct dentry *myfs_lookup(struct inode *dir, struct dentry *dentry,
 	struct inode *inode = NULL;
 	u32 idx;
 
+	if (sbi->erased)
+		return ERR_PTR(-EIO);
 	if (dentry->d_name.len > sbi->max_filename_len)
 		return ERR_PTR(-ENAMETOOLONG);
 
@@ -135,6 +140,9 @@ static int myfs_readdir(struct file *file, struct dir_context *ctx)
 	char name[MYFS_NAME_MAX];
 
 	if (!dir_emit_dots(file, ctx))
+		return 0;
+
+	if (sbi->erased)
 		return 0;
 
 	while (ctx->pos >= 2 && (u32)(ctx->pos - 2) < sbi->num_files) {
